@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PAC performance and readmission intelligence</title>
+<style>
+  :root{
+    --ink:#10131a; --sub:#5c6472; --mut:#8a919e;
+    --line:#e6e8ec; --panel:#f8f9fb; --card:#ffffff;
+    --blue:#2a6fc2; --blue-fill:#3a7bd5;
+    --green:#1f8a4f; --green-bg:#e3f3ea;
+    --amber:#b5790a; --amber-bg:#fbf0dc;
+    --red:#c0392b; --red-bg:#fbe4e3;
+    --track:#eceef1;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,'Segoe UI',Arial,sans-serif;}
+  body{background:#ffffff;color:var(--ink);width:100%;max-width:1180px;margin:0 auto;padding:24px 20px 60px;}
+  .eyebrow{font-size:11px;letter-spacing:1.6px;color:var(--blue);font-weight:700;text-transform:uppercase;}
+  h1{font-size:21px;font-weight:600;margin-top:4px;}
+  .subtitle{font-size:12px;color:var(--sub);margin-top:4px;}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0 22px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);border-radius:8px;}
+  .toolbar label{font-size:11px;color:var(--mut);margin-right:4px;}
+  select{font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--ink);}
+  .reset-btn{margin-left:auto;font-size:12px;padding:6px 12px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer;}
+  .reset-btn:hover{background:var(--panel);}
+
+  .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--blue-fill);border-radius:8px;padding:14px 16px;}
+  .kpi.good{border-left-color:var(--green);}
+  .kpi.warn{border-left-color:var(--amber);}
+  .kpi.bad{border-left-color:var(--red);}
+  .kpi-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);margin-bottom:8px;}
+  .kpi-val{font-size:24px;font-weight:700;}
+  .kpi-note{font-size:11px;color:var(--sub);margin-top:6px;}
+
+  .row{display:flex;gap:14px;margin-bottom:14px;}
+  .panel{flex:1;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px;}
+  .panel-title{font-size:13px;font-weight:600;margin-bottom:2px;}
+  .panel-sub{font-size:10.5px;color:var(--mut);margin-bottom:14px;}
+
+  .bars{display:flex;align-items:flex-end;gap:26px;height:150px;padding:0 6px 24px;position:relative;}
+  .bar-group{display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end;position:relative;}
+  .bar{width:100%;max-width:64px;border-radius:5px 5px 0 0;transition:height .3s ease;position:relative;}
+  .bar-val{position:absolute;top:-19px;left:0;right:0;text-align:center;font-size:12.5px;font-weight:700;}
+  .bar-cap{position:absolute;bottom:-24px;left:0;right:0;text-align:center;font-size:10px;color:var(--sub);}
+
+  .prov-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;}
+  .prov-row:hover .prov-name{color:var(--blue);}
+  .prov-name{width:96px;font-size:11.5px;color:var(--ink);flex-shrink:0;}
+  .prov-track{flex:1;height:15px;background:var(--track);border-radius:3px;overflow:hidden;display:flex;}
+  .seg-i{background:var(--blue-fill);height:100%;}
+  .seg-s{background:#b7bcc6;height:100%;}
+  .prov-pct{width:34px;font-size:10.5px;color:var(--mut);text-align:right;flex-shrink:0;}
+  .prov-flag{font-size:10px;color:var(--amber);margin-left:6px;white-space:nowrap;flex-shrink:0;}
+
+  .legend{display:flex;gap:14px;font-size:10px;color:var(--sub);margin-top:6px;}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);padding:8px 10px;border-bottom:1px solid var(--line);}
+  td{padding:9px 10px;border-bottom:1px solid #f0f1f4;color:#2a2f3a;}
+  tr.fac-row{cursor:pointer;}
+  tr.fac-row:hover td{background:var(--panel);}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .pill{font-size:10px;padding:3px 9px;border-radius:4px;font-weight:600;white-space:nowrap;}
+  .pill-pass{background:var(--green-bg);color:var(--green);}
+  .pill-flag{background:var(--amber-bg);color:var(--amber);}
+  .pill-breach{background:var(--red-bg);color:var(--red);}
+
+  .insight{font-size:12px;color:var(--sub);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-top:14px;line-height:1.5;}
+  .insight b{color:var(--ink);}
+
+  .footer{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:10px;padding-top:10px;border-top:1px solid #f0f1f4;}
+
+  @media (max-width:720px){
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .row{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="eyebrow">TeamHealth &middot; Post-acute care analytics</div>
+  <h1>PAC performance and readmission intelligence</h1>
+  <div class="subtitle" id="subtitleText">All facilities &middot; all provider types &middot; 128 admissions in view</div>
+
+  <div class="toolbar">
+    <label for="facilitySel">Facility</label>
+    <select id="facilitySel"></select>
+    <label for="providerTypeSel">Provider type</label>
+    <select id="providerTypeSel">
+      <option value="all">All</option>
+      <option value="NP">NP</option>
+      <option value="MD">MD</option>
+    </select>
+    <button class="reset-btn" id="resetBtn">Reset filters</button>
+  </div>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="row">
+    <div class="panel" style="flex:1.25;">
+      <div class="panel-title">Clinical impact matrix</div>
+      <div class="panel-sub">Readmission rate by time to first clinician visit &mdash; recalculated from filtered admissions</div>
+      <div class="bars" id="barsChart"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Coding distribution</div>
+      <div class="panel-sub">Initial (99306) vs subsequent (99307) coding on first visits &mdash; click a provider to drill in</div>
+      <div id="provList"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--blue-fill);"></span>Initial (99306)</span>
+        <span><span class="dot" style="background:#b7bcc6;"></span>Subsequent (99307)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Facility performance</div>
+    <div class="panel-sub">Click a row to filter the whole dashboard to that facility</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Facility</th>
+          <th style="text-align:right;">Admissions</th>
+          <th style="text-align:right;">Avg visit lag</th>
+          <th style="text-align:right;">30-day readmit %</th>
+          <th style="text-align:right;">wRVUs</th>
+          <th style="text-align:right;">Coding audit</th>
+        </tr>
+      </thead>
+      <tbody id="facTableBody"></tbody>
+    </table>
+    <div class="insight" id="insightBox"></div>
+  </div>
+
+  <div class="footer">
+    <div>Synthetic dataset for demonstration &mdash; 128 patient-level admission records, computed client-side</div>
+    <div>Not connected to live TeamHealth data</div>
+  </div>
+
+<script>
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+var rand = mulberry32(42);
+
+var FACILITIES = [
+  { id:'shady', name:'Shady Pines SNF', providers:[{name:'NP J. Smith', type:'NP', undercodeBias:0.55},{name:'NP A. Reyes', type:'NP', undercodeBias:0.10}] },
+  { id:'stjude', name:'St. Jude Rehab', providers:[{name:'MD R. Taylor', type:'MD', undercodeBias:0.35}] },
+  { id:'oakridge', name:'Oakridge Nursing', providers:[{name:'NP M. Davis', type:'NP', undercodeBias:0.15}] },
+  { id:'legacy', name:'Legacy Care Center', providers:[{name:'NP K. Lin', type:'NP', undercodeBias:0.60}] }
+];
+
+var admissions = [];
+FACILITIES.forEach(function(fac){
+  var count = fac.id === 'shady' ? 42 : (fac.id === 'stjude' ? 30 : (fac.id === 'oakridge' ? 28 : 28));
+  for(var i=0;i<count;i++){
+    var provider = fac.providers[Math.floor(rand()*fac.providers.length)];
+    var delayRoll = rand();
+    var daysToVisit = delayRoll < 0.55 ? (rand()*0.9) : (delayRoll < 0.82 ? (1 + rand()*1.0) : (2 + rand()*2.2));
+    var bucket = daysToVisit < 1 ? '<24h' : (daysToVisit <= 2 ? '24-48h' : '>48h');
+    var readmitProb = bucket === '<24h' ? 0.075 : (bucket === '24-48h' ? 0.13 : 0.245);
+    var isReadmit = rand() < readmitProb ? 1 : 0;
+    var undercoded = rand() < provider.undercodeBias;
+    var cpt = undercoded ? '99307' : '99306';
+    var wrvu = cpt === '99306' ? 1.5 : 0.4;
+    admissions.push({
+      facilityId: fac.id, facilityName: fac.name,
+      provider: provider.name, providerType: provider.type,
+      daysToVisit: daysToVisit, bucket: bucket,
+      isReadmit: isReadmit, cpt: cpt, wrvu: wrvu
+    });
+  }
+});
+
+var state = { facility: 'all', providerType: 'all' };
+
+var facilitySel = document.getElementById('facilitySel');
+facilitySel.innerHTML = '<option value="all">All facilities</option>' +
+  FACILITIES.map(function(f){ return '<option value="'+f.id+'">'+f.name+'</option>'; }).join('');
+facilitySel.addEventListener('change', function(){ state.facility = this.value; render(); });
+document.getElementById('providerTypeSel').addEventListener('change', function(){ state.providerType = this.value; render(); });
+document.getElementById('resetBtn').addEventListener('click', function(){
+  state = { facility:'all', providerType:'all' };
+  facilitySel.value = 'all';
+  document.getElementById('providerTypeSel').value = 'all';
+  render();
+});
+
+function filtered(){
+  return admissions.filter(function(a){
+    if(state.facility !== 'all' && a.facilityId !== state.facility) return false;
+    if(state.providerType !== 'all' && a.providerType !== state.providerType) return false;
+    return true;
+  });
+}
+
+function pct(n){ return (Math.round(n*1000)/10).toFixed(1); }
+function round1(n){ return Math.round(n*10)/10; }
+
+function render(){
+  var data = filtered();
+  var n = data.length;
+  var readmits = data.filter(function(a){return a.isReadmit;}).length;
+  var readmitRate = n ? readmits/n : 0;
+  var avgDays = n ? data.reduce(function(s,a){return s+a.daysToVisit;},0)/n : 0;
+  var totalWrvu = data.reduce(function(s,a){return s+a.wrvu;},0);
+  var correctCoded = data.filter(function(a){return a.cpt==='99306';}).length;
+  var codingAccuracy = n ? correctCoded/n : 0;
+
+  var facName = state.facility === 'all' ? 'all facilities' : FACILITIES.find(function(f){return f.id===state.facility;}).name;
+  var provName = state.providerType === 'all' ? 'all provider types' : state.providerType + ' providers';
+  document.getElementById('subtitleText').textContent = facName + ' \u00b7 ' + provName + ' \u00b7 ' + n + ' admissions in view';
+
+  var kpiRow = document.getElementById('kpiRow');
+  kpiRow.innerHTML = '' +
+    kpiCard('30-day readmit rate', pct(readmitRate)+'%', readmitRate<=0.12?'good':(readmitRate<=0.18?'warn':'bad'), 'Benchmark: 12.0%') +
+    kpiCard('Avg time to first visit', round1(avgDays)+' days', avgDays<=2?'good':'warn', 'SLA: under 2.0 days') +
+    kpiCard('Total wRVU generation', Math.round(totalWrvu*10)/10, 'good', n+' billed encounters') +
+    kpiCard('Coding accuracy', pct(codingAccuracy)+'%', codingAccuracy>=0.85?'good':(codingAccuracy>=0.7?'warn':'bad'), 'Target: 95.0%');
+
+  var buckets = ['<24h','24-48h','>48h'];
+  var bucketLabels = {'<24h':'Under 24 hrs','24-48h':'24\u201348 hrs','>48h':'Over 48 hrs'};
+  var barsHtml = '';
+  buckets.forEach(function(b){
+    var subset = data.filter(function(a){return a.bucket===b;});
+    var rate = subset.length ? subset.filter(function(a){return a.isReadmit;}).length/subset.length : 0;
+    var color = rate<=0.10 ? '#2fa66a' : (rate<=0.16 ? '#c98500' : '#d9534f');
+    var height = Math.max(6, Math.round(rate*400));
+    barsHtml += '<div class="bar-group"><div class="bar" style="height:'+height+'px;background:'+color+';"><div class="bar-val">'+pct(rate)+'%</div></div><div class="bar-cap">'+bucketLabels[b]+' ('+subset.length+')</div></div>';
+  });
+  document.getElementById('barsChart').innerHTML = barsHtml;
+
+  var provMap = {};
+  data.forEach(function(a){
+    if(!provMap[a.provider]) provMap[a.provider] = {initial:0,sub:0,facilityId:a.facilityId};
+    if(a.cpt==='99306') provMap[a.provider].initial++; else provMap[a.provider].sub++;
+  });
+  var provNames = Object.keys(provMap);
+  var provHtml = '';
+  if(provNames.length === 0){
+    provHtml = '<div style="font-size:12px;color:var(--mut);">No providers match this filter.</div>';
+  }
+  provNames.forEach(function(pname){
+    var p = provMap[pname];
+    var total = p.initial + p.sub;
+    var initPct = total ? p.initial/total : 0;
+    var flagged = initPct < 0.30;
+    provHtml += '<div class="prov-row" onclick="drillProvider(\''+p.facilityId+'\')">' +
+      '<div class="prov-name">'+pname+'</div>' +
+      '<div class="prov-track"><div class="seg-i" style="width:'+(initPct*100)+'%;"></div><div class="seg-s" style="width:'+((1-initPct)*100)+'%;"></div></div>' +
+      '<div class="prov-pct">'+Math.round(initPct*100)+'%</div>' +
+      (flagged ? '<div class="prov-flag">Undercoding</div>' : '') +
+      '</div>';
+  });
+  document.getElementById('provList').innerHTML = provHtml;
+
+  var facTableBody = document.getElementById('facTableBody');
+  var rowsHtml = '';
+  FACILITIES.forEach(function(fac){
+    var facData = admissions.filter(function(a){
+      if(a.facilityId !== fac.id) return false;
+      if(state.providerType !== 'all' && a.providerType !== state.providerType) return false;
+      return true;
+    });
+    if(facData.length === 0) return;
+    var fn = facData.length;
+    var fReadmits = facData.filter(function(a){return a.isReadmit;}).length;
+    var fRate = fReadmits/fn;
+    var fAvgDays = facData.reduce(function(s,a){return s+a.daysToVisit;},0)/fn;
+    var fWrvu = facData.reduce(function(s,a){return s+a.wrvu;},0);
+    var fCorrect = facData.filter(function(a){return a.cpt==='99306';}).length;
+    var fAccuracy = fCorrect/fn;
+    var pill = fRate > 0.18 ? '<span class="pill pill-breach">SLA breach</span>' : (fAccuracy < 0.6 ? '<span class="pill pill-flag">Flagged (CPT)</span>' : '<span class="pill pill-pass">Passed</span>');
+    rowsHtml += '<tr class="fac-row" onclick="selectFacility(\''+fac.id+'\')">' +
+      '<td>'+fac.name+'</td>' +
+      '<td class="num">'+fn+'</td>' +
+      '<td class="num">'+round1(fAvgDays)+' days</td>' +
+      '<td class="num">'+pct(fRate)+'%</td>' +
+      '<td class="num">'+Math.round(fWrvu*10)/10+'</td>' +
+      '<td class="num">'+pill+'</td>' +
+      '</tr>';
+  });
+  facTableBody.innerHTML = rowsHtml;
+
+  var worstBucket = buckets.map(function(b){
+    var subset = data.filter(function(a){return a.bucket===b;});
+    return { b:b, rate: subset.length ? subset.filter(function(a){return a.isReadmit;}).length/subset.length : 0 };
+  }).sort(function(x,y){return y.rate-x.rate;})[0];
+  var lowestCoder = provNames.map(function(p){
+    var pd = provMap[p]; var t=pd.initial+pd.sub;
+    return { name:p, ratio: t? pd.initial/t : 1 };
+  }).sort(function(x,y){return x.ratio-y.ratio;})[0];
+  var insightParts = [];
+  if(worstBucket && n>0) insightParts.push('Admissions with a first visit <b>'+bucketLabels[worstBucket.b].toLowerCase()+'</b> after arrival show a <b>'+pct(worstBucket.rate)+'%</b> readmission rate in this view.');
+  if(lowestCoder) insightParts.push('<b>'+lowestCoder.name+'</b> codes initial visits as 99306 only <b>'+Math.round(lowestCoder.ratio*100)+'%</b> of the time, the widest gap in this filter, worth an EHR template check.');
+  document.getElementById('insightBox').innerHTML = insightParts.length ? insightParts.join(' ') : 'No admissions match the current filters.';
+}
+
+function kpiCard(label, val, cls, note){
+  return '<div class="kpi '+cls+'"><div class="kpi-label">'+label+'</div><div class="kpi-val">'+val+'</div><div class="kpi-note">'+note+'</div></div>';
+}
+
+function selectFacility(id){
+  state.facility = id;
+  facilitySel.value = id;
+  render();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function drillProvider(facId){
+  state.facility = facId;
+  facilitySel.value = facId;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
